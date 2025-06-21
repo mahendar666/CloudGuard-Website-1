@@ -8,10 +8,82 @@
     <meta name="description" content="Comprehensive monitoring platform for AWS resources and websites with real-time metrics, intelligent alerts, bot attack detection, and remote control via WhatsApp and Telegram. Monitor, secure, and control your entire infrastructure." />
     <meta name="keywords" content="AWS monitoring, website monitoring, cloud security, resource control, bot attack detection, WhatsApp alerts, Telegram notifications, CloudWatch, infrastructure monitoring, server control" />
     <!-- CloudGuard Analytics -->
-    <script src="http://localhost:5000/cloudguard-analytics.js"></script>
     <script>
-      // Replace with your actual website ID from CloudGuard dashboard
-      window.CLOUDGUARD_WEBSITE_ID = "YOUR_WEBSITE_ID"; 
+    (function() {
+      // Replace with your CloudGuard backend URL if not localhost
+      const BACKEND_WS = "ws://localhost:5000";
+      const BACKEND_HTTP = "http://localhost:5000";
+      // Set this to the websiteId as used in CloudGuard (from your dashboard)
+      const WEBSITE_ID = "6845317a571939d3d37c69b8";
+
+      // Generate or get a sessionId (for unique visitor tracking)
+      function getSessionId() {
+        let sid = localStorage.getItem("cloudguard_sid");
+        if (!sid) {
+          sid = Math.random().toString(36).slice(2) + Date.now();
+          localStorage.setItem("cloudguard_sid", sid);
+        }
+        return sid;
+      }
+
+      // Send analytics event via WebSocket
+      let socket;
+      function connectSocket() {
+        try {
+          socket = new WebSocket(BACKEND_WS + "/socket.io/?EIO=4&transport=websocket");
+          socket.onopen = function() {
+            sendPageview();
+            setInterval(sendHeartbeat, 10000); // heartbeat every 10s
+          };
+          socket.onerror = function(e) {
+            // fallback to HTTP if socket fails
+            sendPageviewHttp();
+          };
+        } catch (e) {
+          sendPageviewHttp();
+        }
+      }
+
+      function sendPageview() {
+        if (socket && socket.readyState === 1) {
+          socket.send(JSON.stringify({
+            type: "pageview",
+            websiteId: WEBSITE_ID,
+            sessionId: getSessionId(),
+            url: window.location.href,
+            ts: Date.now()
+          }));
+        }
+      }
+
+      function sendHeartbeat() {
+        if (socket && socket.readyState === 1) {
+          socket.send(JSON.stringify({
+            type: "heartbeat",
+            websiteId: WEBSITE_ID,
+            sessionId: getSessionId(),
+            url: window.location.href,
+            ts: Date.now()
+          }));
+        }
+      }
+
+      function sendPageviewHttp() {
+        fetch(BACKEND_HTTP + "/api/analytics", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "pageview",
+            websiteId: WEBSITE_ID,
+            sessionId: getSessionId(),
+            url: window.location.href,
+            ts: Date.now()
+          })
+        });
+      }
+
+      connectSocket();
+    })();
     </script>
     <!-- Yandex.Metrika counter -->
     <script type="text/javascript" >
